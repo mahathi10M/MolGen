@@ -1,97 +1,265 @@
-## Drug Molecule Generator with Diffusion Model
+# 🧬 MolGen — AI Drug Molecule Generator
 
-This project presents a web-based platform that integrates a diffusion model trained on SMILES data to generate novel drug-like molecules. It features an interactive React frontend with 3D molecular visualization, allowing users to input molecules, visualize generated structures, and explore drug-likeness properties seamlessly.
+A web application that uses a **PyTorch diffusion model** to generate novel drug-like molecules from a SMILES input. Built with Flask, RDKit, and a React frontend.
 
-## 🚀 Features
+---
 
-- **SMILES-Based Diffusion Model:** Generates novel molecular structures by learning from a dataset of SMILES representations.
-- **Molecular Visualization:** Displays 2D structure images of both input and generated molecules.
-- **Interactive 3D Viewer:** Spin and rotate molecules in 3D directly in the browser using 3Dmol.js.
-- **Drug-Likeness Analysis:** Reports Lipinski's Rule of Five properties (MW, logP, H-bond donors/acceptors).
-- **React Frontend:** A polished single-file HTML/React interface — no build step or npm required.
+## 🖥️ Demo
 
-## 🧰 Technologies Used
+Enter any SMILES string → the diffusion model generates a new molecule → view it in 2D/3D and check Lipinski drug-likeness properties.
 
-- **Diffusion Models:** Implemented using PyTorch to learn and generate molecular structures from SMILES data.
-- **Cheminformatics:** RDKit for SMILES parsing, fingerprint generation, and molecule rendering.
-- **Backend:** Flask to handle API requests and model inference.
-- **Frontend:** React (via CDN) + HTML/CSS — open `index.html` directly in any browser.
-- **3D Visualization:** 3Dmol.js for interactive in-browser molecular rendering.
+---
 
-## ⚙️ Setup & Installation
+## 📁 Project Structure
 
-### Prerequisites
+```
+molgen/
+├── app.py                  # Flask backend (API server)
+├── model_loader.py         # DiffusionModel architecture + loader
+├── preprocessor.py         # SMILES → Morgan fingerprint (2048-bit)
+├── predict.py              # Standalone prediction script
+├── modify_notebook.py      # Patches molgen.ipynb in-place
+├── molgen.ipynb            # Training notebook
+├── model.pth               # Trained model weights
+├── SMILES_Big_Data_Set.csv # Training dataset
+└── index.html              # React frontend
+```
+
+---
+
+## ⚙️ Requirements
 
 - Python 3.8+
-- pip
-- Any modern browser (Chrome, Firefox, Safari, Edge)
+- pip packages:
 
-### Steps
+```bash
+pip install flask flask-cors torch rdkit pandas numpy
+```
 
-```sh
-# Step 1: Clone the repository
-git clone <YOUR_GIT_URL>
+---
 
-# Step 2: Navigate to the project directory
-cd <YOUR_PROJECT_NAME>
+## 🚀 Running Locally
 
-# Step 3: Install dependencies
-pip install -r requirements.txt
+### 1. Start the Flask backend
 
-# Step 4: Run the Flask backend
+```bash
 python app.py
 ```
 
-The Flask backend runs at `http://localhost:5001`.
+The server will start at `http://localhost:5001`
 
-```sh
-# Step 5: Open the frontend
-open index.html   # macOS
-# or just double-click index.html in Finder / Explorer
+You should see:
+```
+📂 Loading training SMILES...
+✅ Loaded 5000 training molecules
+✅ Model loaded
 ```
 
-## 📦 Requirements
+### 2. Open the frontend
 
-Add the following to your `requirements.txt`:
+Just open `index.html` in your browser. No build step needed.
+
+### 3. Test it
+
+- Enter a SMILES string like `CC(=O)OC1=CC=CC=C1C(=O)O` (Aspirin)
+- Or click one of the quick example pills
+- Hit **⚗ Generate**
+
+---
+
+## 🔬 How It Works
 
 ```
-flask
-flask-cors
-torch
-rdkit
-numpy
-pandas
+Input SMILES
+     ↓
+Morgan Fingerprint (2048 bits)
+     ↓
+Forward Diffusion (add noise, t=800 steps)
+     ↓
+Reverse Diffusion (denoise, DiffusionModel)
+     ↓
+Generated Fingerprint
+     ↓
+Nearest-neighbour Tanimoto search (BulkTanimotoSimilarity)
+     ↓
+Output SMILES + 2D image + 3D viewer + Lipinski properties
 ```
 
-## 🖥️ Usage
+---
 
-1. Make sure `python app.py` is running in a terminal (port 5001).
-2. Open `index.html` in your browser.
-3. Enter a valid SMILES string (e.g., `CC(=O)OC1=CC=CC=C1C(=O)O` for Aspirin) or click a quick example.
-4. Click **Generate** to run the diffusion model.
-5. View the input and generated molecule structures side by side.
-6. Interact with the 3D viewer — drag to rotate, scroll to zoom.
-7. Check the Lipinski drug-likeness properties for both molecules.
-8. Download the generated molecule as an SDF file for use in PyMOL or UCSF Chimera.
+## 🌐 API Endpoints
 
-## ✏️ Edit Files
+### `POST /predict`
 
-**Directly in GitHub:**
-- Navigate to the desired file.
-- Click the "Edit" button (pencil icon) at the top right.
-- Make your changes and commit.
+**Request:**
+```json
+{ "smiles": "CC(=O)OC1=CC=CC=C1C(=O)O" }
+```
 
-**Using GitHub Codespaces:**
-- Click the "Code" button on the repo page.
-- Select the "Codespaces" tab and open a new Codespace.
-- Edit files and commit directly from the browser.
+**Response:**
+```json
+{
+  "input": {
+    "smiles": "...",
+    "image": "<base64 PNG>",
+    "properties": {
+      "molecular_weight": 180.16,
+      "logP": 1.31,
+      "h_bond_donors": 1,
+      "h_bond_acceptors": 3,
+      "drug_like": true
+    },
+    "sdf": "..."
+  },
+  "generated": {
+    "smiles": "...",
+    "image": "<base64 PNG>",
+    "properties": { ... },
+    "sdf": "..."
+  }
+}
+```
 
-## 🛠️ What technologies are used for this project?
+### `GET /health`
 
-- Python
-- PyTorch
-- RDKit
-- Flask
-- React (CDN)
-- 3Dmol.js
-- HTML / CSS / JavaScript
+```json
+{ "status": "ok", "molecules": 5000 }
+```
+
+---
+
+## 🧪 Standalone Prediction (no server)
+
+```bash
+python predict.py "CC(=O)OC1=CC=CC=C1C(=O)O"
+```
+
+---
+
+## 🏋️ Training Results (Google Colab)
+
+### Dataset
+| Property | Value |
+|----------|-------|
+| Source | Kaggle — `yanmaksi/big-molecules-smiles-dataset` |
+| Total SMILES loaded | 15,872 |
+| Valid fingerprints | 15,872 × 2048 bits |
+| Fingerprint speed | 610 molecules/sec |
+
+### Training
+| Property | Value |
+|----------|-------|
+| Device | CPU |
+| Epochs | 100 |
+| Total parameters | 4,925,312 |
+| Starting loss | 0.797866 (epoch 10) |
+| Final loss | 0.783668 (epoch 100) |
+| **Best loss** | **0.782770 (epoch 91)** |
+| LR schedule | Cosine decay 2e-4 → 0 |
+
+**Loss curve:**
+```
+Epoch  10 │ 0.797866  ████████████████████
+Epoch  20 │ 0.791337  ███████████████████
+Epoch  30 │ 0.789043  ███████████████████
+Epoch  40 │ 0.787415  ██████████████████
+Epoch  50 │ 0.785937  ██████████████████
+Epoch  60 │ 0.784966  ██████████████████
+Epoch  70 │ 0.784701  ██████████████████
+Epoch  80 │ 0.783935  ██████████████████
+Epoch  90 │ 0.783432  ██████████████████
+Epoch 100 │ 0.783668  ██████████████████
+```
+
+### Evaluation (200 sampled molecules)
+| Metric | Score | Meaning |
+|--------|-------|---------|
+| **Validity** | 27.0% | Chemically valid SMILES |
+| **Uniqueness** | 27.0% | Non-duplicate molecules |
+| **Novelty** | 0.0% | Not seen in training set |
+| **Avg QED** | 0.330 | Drug-likeness score (0–1) |
+| Sampling speed | 2.43 mol/sec | On CPU |
+
+> **Note on Novelty 0%:** The model currently retrieves the nearest training molecule via Tanimoto similarity rather than decoding the fingerprint into a brand-new SMILES. A graph neural network decoder would be needed to generate truly novel structures.
+
+---
+
+## 📊 Model Details
+
+| Property | Value |
+|----------|-------|
+| Architecture | Diffusion Model |
+| Input dim | 2048 (Morgan fingerprint) |
+| Hidden dim | 1024 |
+| Time embedding | Sinusoidal (128-dim) |
+| Timesteps | 1000 |
+| Training data | ~16K drug-like SMILES |
+| Framework | PyTorch |
+
+---
+
+## 💊 Lipinski Rule of Five (Ro5)
+
+The app checks if generated molecules are **drug-like** using Lipinski's rules:
+
+| Property | Limit |
+|----------|-------|
+| Molecular Weight | ≤ 500 Da |
+| logP | ≤ 5 |
+| H-Bond Donors | ≤ 5 |
+| H-Bond Acceptors | ≤ 10 |
+
+---
+
+## 🚢 Deployment
+
+### Railway (recommended)
+
+1. Push your project to GitHub
+2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
+3. Set start command: `python app.py`
+4. Update `BACKEND` in `index.html` from `http://localhost:5001` to your Railway URL
+5. Deploy `index.html` separately on [Netlify](https://netlify.com) (drag & drop)
+
+### Render
+
+1. Go to [render.com](https://render.com) → New Web Service
+2. Connect your GitHub repo
+3. Build command: `pip install flask flask-cors torch rdkit pandas numpy`
+4. Start command: `python app.py`
+5. Update the backend URL in `index.html`
+
+---
+
+## 🔍 Limitations & Next Steps
+
+The model achieves 27% chemical validity and 0.330 QED on CPU-only training over 100 epochs. Novelty is 0% because the pipeline retrieves the nearest training molecule via Tanimoto similarity — a known limitation of fingerprint-based diffusion without a SMILES decoder.
+
+**What I'd improve next:**
+- Add a GNN or VAE decoder to generate truly novel SMILES instead of retrieving nearest neighbours
+- Train on GPU for more epochs to push validity above 80%
+- Use reinforcement learning (REINFORCE) to directly optimise QED and drug-likeness
+- Switch to a graph-based diffusion model (e.g. GDSS) for better chemical validity
+
+---
+
+## ⚠️ Known Limitations
+
+- Generation is slow on CPU (~30s per molecule) — use GPU for faster inference
+- The model retrieves the nearest training molecule rather than generating truly novel SMILES — a decoder (e.g. graph neural net) would be needed for fully novel structures
+- `index.html` has the backend URL hardcoded — update it before deploying
+
+---
+
+## 🛠️ Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `Cannot connect to Flask backend` | Make sure `python app.py` is running on port 5001 |
+| `Invalid SMILES` error | Check your SMILES string at [pubchem.ncbi.nlm.nih.gov](https://pubchem.ncbi.nlm.nih.gov) |
+| `model.pth not found` | Make sure `model.pth` is in the same folder as `app.py` |
+| `SMILES_Big_Data_Set.csv not found` | Place the CSV in the same folder as `app.py` |
+| 3D viewer not loading | It loads from a CDN — check your internet connection |
+
+---
+
