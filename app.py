@@ -16,8 +16,12 @@ from io import BytesIO
 import base64
 
 app = Flask(__name__)
-CORS(app)
-
+CORS(app, origins=[
+    "https://your-netlify-url.netlify.app",
+    "https://mahathi10m.github.io",
+    "http://localhost:5173",
+    "http://localhost:3000"
+])
 # ── Model (sinusoidal time embedding — must match training architecture) ───────
 class SinusoidalTimeEmbedding(nn.Module):
     def __init__(self, dim):
