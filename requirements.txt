@@ -1,6 +1,9 @@
-flask
-flask-cors
-torch
-rdkit
-pandas
-numpy
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+torch==2.3.1
+rdkit==2024.3.5
+numpy==1.26.4
+pandas==2.2.2
